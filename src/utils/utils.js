@@ -1,42 +1,41 @@
 import { Vector3 } from "three";
 
-function calculateDistance(robot, ball) {
+function calculateDistance(robot, targetPos) {
   // const basePos = robot.base.getWorldPosition(new Vector3());
-  const ballPos = ball.getWorldPosition(new Vector3());
   const uArmPos = robot.J3.getWorldPosition(new Vector3());
   const lArmPos = robot.J2.getWorldPosition(new Vector3());
-  const handPos = robot.J6.getWorldPosition(new Vector3());
+  const handPos = robot.endPointer.getWorldPosition(new Vector3());
 
   const uArmToHand = handPos.distanceTo(uArmPos);
-  const lArmToBall = ballPos.distanceTo(lArmPos);
+  const lArmTotarget = targetPos.distanceTo(lArmPos);
   const lArmToUArm = uArmPos.distanceTo(lArmPos);
 
   // const baseToLArm = lArmPos.distanceTo(basePos);
 
-  const targetHeight = ballPos.y - lArmPos.y;
+  const targetHeight = targetPos.y - lArmPos.y;
 
   const horizontalDist = Math.sqrt(
-    Math.pow(lArmToBall, 2) - Math.pow(targetHeight, 2)
+    Math.pow(lArmTotarget, 2) - Math.pow(targetHeight, 2)
   );
 
   return {
     uArmToHand,
-    lArmToBall,
+    lArmTotarget,
     lArmToUArm,
     targetHeight,
     horizontalDist,
   };
 }
 
-function calculateAngles(robot, ball) {
-  const { uArmToHand, lArmToBall, lArmToUArm, targetHeight, horizontalDist } =
-    calculateDistance(robot, ball);
+function calculateAngles(robot, targetPos) {
+  const { uArmToHand, lArmTotarget, lArmToUArm, targetHeight, horizontalDist } =
+    calculateDistance(robot, targetPos);
 
   const maxReach = uArmToHand + lArmToUArm;
 
-  const baseAngle = Math.atan2(ball.position.x, ball.position.z);
+  const baseAngle = Math.atan2(targetPos.x, targetPos.z);
 
-  if (lArmToBall > maxReach) {
+  if (lArmTotarget > maxReach) {
     console.warn("Target is too far to reach!");
     return {
       baseAngle: baseAngle,
@@ -47,18 +46,16 @@ function calculateAngles(robot, ball) {
 
   const shoulderAngle1 = Math.atan2(targetHeight, horizontalDist);
   const shoulderAngle2 = Math.acos(
-    (lArmToBall ** 2 + lArmToUArm ** 2 - uArmToHand ** 2) /
-      (2 * lArmToBall * lArmToUArm)
+    (lArmTotarget ** 2 + lArmToUArm ** 2 - uArmToHand ** 2) /
+      (2 * lArmTotarget * lArmToUArm)
   );
 
   let elbowAngle = Math.acos(
-    (lArmToUArm ** 2 + uArmToHand ** 2 - lArmToBall ** 2) /
+    (lArmToUArm ** 2 + uArmToHand ** 2 - lArmTotarget ** 2) /
       (2 * lArmToUArm * uArmToHand)
   );
 
   let shoulderAngle = shoulderAngle1 + shoulderAngle2;
-  // elbowAngle = elbowAngle + Math.PI / 4;
-  // elbowAngle = elbowAngle - Math.PI / 4;
 
   return {
     baseAngle,
@@ -90,10 +87,59 @@ function updateRobotJoints(robot) {
     });
 }
 
-export {
-  calculateDistance,
-  calculateAngles,
-  // calculateBoxplacement,
-  // calculateJointAngles,
-  updateRobotJoints,
+const positions = {
+  1: {
+    x: 1.4,
+    y: 1.2,
+    z: 1.2,
+  },
+  2: {
+    x: 2.6,
+    y: 1.1,
+    z: 1.6,
+  },
+  3: {
+    x: 3.95,
+    y: 1.1,
+    z: 1.8,
+  },
+  4: {
+    x: 5.3,
+    y: 1.2,
+    z: 2.1,
+  },
+  5: {
+    x: 2.2,
+    y: 1.2,
+    z: 4.2,
+  },
+  6: {
+    x: 3.3,
+    y: 1.2,
+    z: 4.3,
+  },
+  7: {
+    x: 4.45,
+    y: 1.35,
+    z: 4.45,
+  },
+  8: {
+    x: 5.75,
+    y: 1.45,
+    z: 4.6,
+  },
 };
+
+const boxPositions = [];
+for (let j = 0; j < 2; j++) {
+  for (let i = 0; i < 4; i++) {
+    boxPositions.push(
+      new Vector3(
+        4 - 2.5 + i + 0.5 + i * 0.25 + 0.15,
+        0.25 + 0.25 + 0.5,
+        4 - 2.5 + 1 + 2 * j + j * 0.5 + 0.25
+      )
+    );
+  }
+}
+export { calculateAngles, positions, boxPositions };

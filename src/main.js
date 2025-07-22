@@ -1,9 +1,13 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/Addons.js";
+import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader";
+import { GroundedSkybox } from "three/examples/jsm/objects/GroundedSkybox";
 
 import Robot from "./models/loadModel";
-import { calculateAngles } from "./utils/utils";
 import { AnimateHand } from "./components/animate";
+import { positions } from "./utils/utils";
+
+import { createBox, createPallete, createConveyer } from "./models/create";
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x333333);
@@ -16,9 +20,6 @@ const camera = new THREE.PerspectiveCamera(
 camera.position.set(0, 5, 15);
 
 window.scene = scene;
-
-const grid = new THREE.GridHelper(40, 40);
-scene.add(grid);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -45,10 +46,27 @@ new OrbitControls(camera, renderer.domElement);
 
 {
   const color = 0xffffff;
+  const intensity = 6;
+  const light = new THREE.DirectionalLight(color, intensity);
+  light.position.set(1, 2, 4);
+  light.castShadow = true;
+  light.shadow.mapSize.width = 4086; // Increase shadow quality
+  light.shadow.mapSize.height = 4086;
+  light.shadow.camera.near = 0.5;
+  light.shadow.camera.far = 50;
+  light.shadow.camera.left = -50;
+  light.shadow.camera.right = 50;
+  light.shadow.camera.top = 50;
+  light.shadow.camera.bottom = -50;
+  scene.add(light);
+}
+
+{
+  const color = 0xffffff;
   const intensity = 3;
   const light = new THREE.PointLight(color, intensity);
   light.position.set(0, 10, 0);
-  light.castShadow = true; // set light to cast shadow
+  // light.castShadow = true;
   scene.add(light);
 }
 
@@ -56,36 +74,118 @@ const robot = new Robot();
 scene.add(robot.loadModel());
 let modelLoaded = false;
 
-function createBallAtPosition(x, y, z) {
-  const geometry = new THREE.SphereGeometry(0.5, 32, 32);
-  const material = new THREE.MeshStandardMaterial({ color: 0xff0000 });
-  const ball = new THREE.Mesh(geometry, material);
-  ball.position.set(x, y, z);
-  ball.castShadow = true;
-  ball.receiveShadow = true;
-  scene.add(ball);
-  return ball;
+const box = createBox(1, 1, 2, new THREE.Vector3(-6, 2.5, 0));
+scene.add(box);
+
+const pallet = createPallete(5, 0.5, 5, new THREE.Vector3(4, 0.25, 4));
+scene.add(pallet);
+
+const conveyer = createConveyer(2, 6, 2, new THREE.Vector2(-6, -1));
+scene.add(conveyer);
+
+function animateRobot() {
+  const startPoint = new THREE.Vector3(-5.55, 2.9, 0.5);
+
+  const animateHand = new AnimateHand(robot, scene);
+  animateHand.start(startPoint, box);
 }
 
-const ball = createBallAtPosition(-3, 8, -6);
-function updateRobot() {
-  const { baseAngle, shoulderAngle, elbowAngle } = calculateAngles(robot, ball);
+// function updateRobot() {
+//   const { baseAngle, shoulderAngle, elbowAngle } = calculateAngles(
+//     robot,
+//     box.position.clone()
+//   );
 
-  const animateHand = new AnimateHand(robot);
-  animateHand.start(
-    baseAngle + THREE.MathUtils.degToRad(6),
-    shoulderAngle + THREE.MathUtils.degToRad(3),
-    elbowAngle - Math.PI + THREE.MathUtils.degToRad(5)
-  );
-}
+//   const animateHand = new AnimateHand(robot);
+//   animateHand.start(
+//     baseAngle + THREE.MathUtils.degToRad(3),
+//     shoulderAngle - THREE.MathUtils.degToRad(5),
+//     elbowAngle - Math.PI + THREE.MathUtils.degToRad(6)
+//   );
+//   setTimeout(() => {
+//     robot.endPointer.add(box);
+//     box.position.set(0, 0, 0);
+//     box.rotation.x = Math.PI / 2;
+//     box.rotation.y = Math.PI / 2;
+
+//     const { baseAngle, shoulderAngle, elbowAngle } = calculateAngles(
+//       robot,
+//       pallet.position
+//         .clone()
+//         .add(new THREE.Vector3(-4 + 1.5, 0.25 + 0.5, -4 + 6))
+//     );
+
+//     animateHand.start(
+//       baseAngle + THREE.MathUtils.degToRad(8),
+//       shoulderAngle - THREE.MathUtils.degToRad(0),
+//       elbowAngle - Math.PI - THREE.MathUtils.degToRad(12)
+//     );
+
+//     setTimeout(() => {
+//       robot.endPointer.remove(box);
+//       box.position.set(0, 0, 0);
+//       box.position.copy(
+//         pallet.position
+//           .clone()
+//           .add(new THREE.Vector3(-4 + 1.5, 0.25 + 0.5, -4 + 6))
+//       );
+//       box.rotation.set(0, 0, 0);
+//       scene.add(box);
+
+//       const { baseAngle, shoulderAngle, elbowAngle } = calculateAngles(
+//         robot,
+//         pallet.position.clone().add(new THREE.Vector3(-4 + 1.5, 5, -4 + 6))
+//       );
+
+//       animateHand.start(
+//         baseAngle + THREE.MathUtils.degToRad(8),
+//         shoulderAngle - THREE.MathUtils.degToRad(0),
+//         elbowAngle - Math.PI - THREE.MathUtils.degToRad(12)
+//       );
+//     }, 1000);
+
+//     console.log(box);
+//   }, 1000);
+// }
+
+const params = {
+  height: 15,
+  radius: 50,
+};
+
+const hdrLoader = new RGBELoader();
+hdrLoader.load("/industry.hdr", (texture) => {
+  texture.mapping = THREE.EquirectangularReflectionMapping;
+
+  const skybox = new GroundedSkybox(texture, params.height, params.radius);
+  skybox.position.y = params.height - 0.01;
+  scene.add(skybox);
+
+  scene.environment = texture;
+});
+
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+// Add a shadow mesh to the scene
+const shadowMesh = new THREE.Mesh(
+  new THREE.PlaneGeometry(100, 100),
+  new THREE.ShadowMaterial({ opacity: 0.5 })
+);
+shadowMesh.rotation.x = -Math.PI / 2;
+shadowMesh.position.y = -0.01; // Adjusted to align with the ground level
+shadowMesh.receiveShadow = true;
+scene.add(shadowMesh);
 
 function animate() {
   renderer.render(scene, camera);
   requestAnimationFrame(animate);
   if (robot.J6 && !modelLoaded) {
     modelLoaded = true;
-    updateRobot();
+    // updateRobot();
+    animateRobot();
   }
+
   // if (robot.J5) {
   //   // Rotate J5 for demonstration purposes
   //   robot.J5.rotation.y += 0.01;
